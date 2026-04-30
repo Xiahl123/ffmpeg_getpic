@@ -111,7 +111,13 @@ build_ssh_clients "${SCP_AUTH_MODE}"
 remote_target="${SSH_USER}@${SSH_HOST}"
 
 test_ssh_connection() {
-  "${ssh_base[@]}" "${remote_target}" "exit" >/dev/null 2>&1
+  # If ssh_base contains sshpass (password mode), do not force BatchMode.
+  if printf '%s ' "${ssh_base[@]}" | grep -q 'sshpass'; then
+    "${ssh_base[@]}" "${remote_target}" "exit" >/dev/null 2>&1
+  else
+    # Use BatchMode to prevent interactive password prompts during automated test when using key/agent.
+    "${ssh_base[@]}" -o BatchMode=yes "${remote_target}" "exit" >/dev/null 2>&1
+  fi
 }
 
 ensure_remote_dir() {
@@ -184,7 +190,7 @@ for video_path in "${mp4_files[@]}"; do
 
   ffmpeg -hide_banner -loglevel error -y \
     -i "${video_path}" \
-    -vf "select='eq(pict_type\\,I)*gte(n-prev_selected_n\\,${FRAME_INTERVAL})'" \
+    -vf "select='eq(n\\,0)+eq(pict_type\\,I)*gte(n-prev_selected_n\\,${FRAME_INTERVAL})'" \
     -vsync vfr \
     "${target_dir}/${video_stem}_%06d.jpg"
 
